@@ -8,7 +8,7 @@ import json
 import asyncio
 
 
-BASE_DIR = Path.cwd().__str__()
+BASE_DIR = Path(__file__).resolve().parent
 TG_KEYS_DIR = Path(BASE_DIR, '.keys', 'tg.json')
 DB_PATH = Path(BASE_DIR, 'my_db.db')
 
@@ -100,7 +100,7 @@ def tag_all_users(tg_bot: TgApi, message: dict) -> None:
     asyncio.run(tg_bot.send_message(
         text=answer_text,
         chat_id=message['chat']['id'],
-        message_thread_id=message['message_thread_id']
+        message_thread_id=message['message_thread_id'] if 'message_thread_id' in message else None
     ))
 
 
@@ -114,12 +114,13 @@ def main() -> None:
                     user_id=message['from']['id'],
                     user_name=message['from']['username'],
                 )
-                commands = get_commands(message['text'])
-                if message['from']['id'] in get_admins(bot, message['chat']['id'])\
-                    and len(commands) == 1\
-                    and commands[0] in ADMIN_FUNCTIONS:
+                if 'text' in message:
+                    commands = get_commands(message['text'])
+                    if message['from']['id'] in get_admins(bot, message['chat']['id'])\
+                        and len(commands) == 1\
+                        and commands[0] in ADMIN_FUNCTIONS:
                         
-                    ADMIN_FUNCTIONS[commands[0]](bot, message)
+                        ADMIN_FUNCTIONS[commands[0]](bot, message)
         # break
 
 ADMIN_FUNCTIONS = {
