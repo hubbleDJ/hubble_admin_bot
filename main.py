@@ -93,6 +93,10 @@ def tag_all_users(tg_bot: TgApi, message: dict) -> None:
     
     users_str = ' '.join(db_get_all_user_name(message['chat']['id']))
     answer_text = message['text'].replace('@all', users_str)
+    asyncio.run(tg_bot.delete_message(
+        chat_id=message['chat']['id'],
+        message_id=message['message_id']
+    ))
     asyncio.run(tg_bot.send_message(
         text=answer_text,
         chat_id=message['chat']['id'],

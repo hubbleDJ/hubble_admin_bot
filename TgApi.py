@@ -121,3 +121,23 @@ class TgApi:
         except Exception as error:
             answer['description'] = str(error)
         return answer
+    
+    async def delete_message(self, chat_id: int, message_id: int) -> dict:
+        """Удаляет сообщение"""
+        
+        answer = {
+            'ok': False,
+            'description': None
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f'https://api.telegram.org/bot{self.token}/deleteMessage', params={'chat_id': chat_id, 'message_id': message_id}) as resp:
+                    response = await resp.json()
+
+            if 'ok' in response:
+                answer['ok'] = response['ok']
+                        
+        except Exception as error:
+            answer['description'] = str(error)
+        return answer
