@@ -65,7 +65,7 @@ def db_get_all_user_name(chat_id: int) -> list[str]:
     """Достает name пользователей в базе данных с @"""
     
     query = (
-        'select user_name from users\n'
+        'select distinct user_name from users\n'
         f'\twhere chat_id = {chat_id}'
     )
     
