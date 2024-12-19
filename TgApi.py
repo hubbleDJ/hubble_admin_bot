@@ -46,7 +46,7 @@ class TgApi:
             answer['description'] = str(error)
         return answer
     
-    async def send_message(self, text: str, chat_id: int, buttons: list = [], drop_buttons: bool=True, reply_to_message_id: int = None, message_thread_id: int=None) -> dict:
+    async def send_message(self, text: str, chat_id: int, buttons: list = [], drop_buttons: bool=True, reply_to_message_id: int = None, message_thread_id: int=None, parse_mode: str=None) -> dict:
         """Отправляет сообщение"""
         
         answer = {
@@ -72,7 +72,7 @@ class TgApi:
 
                 if reply_to_message_id: payload['reply_to_message_id'] = reply_to_message_id
                 if message_thread_id: payload['message_thread_id'] = message_thread_id
-                
+                if parse_mode: payload['parse_mode'] = parse_mode
                 if buttons and len(buttons) != 0:
                     payload["reply_markup"] = {
                         "keyboard": [[{"text": text}] for text in buttons],

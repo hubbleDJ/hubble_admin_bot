@@ -6,12 +6,24 @@ import sqlite3 as sq
 import re
 import json
 import asyncio
+import httplib2
+import apiclient.discovery
+from oauth2client.service_account import ServiceAccountCredentials
 
+import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parent
 TG_KEYS_DIR = Path(BASE_DIR, '.keys', 'tg.json')
+GS_KEYS_DIR = Path(BASE_DIR, '.keys', 'google_creds.json')
 DB_PATH = Path(BASE_DIR, 'my_db.db')
 
+SHEET_ID = '1qgSySoi2qepPO841gTLkSdwXNmmbVlagw0ldsNSFXRo'
+
+credentials = ServiceAccountCredentials.from_json_keyfile_name(
+    GS_KEYS_DIR,
+    ['https://www.googleapis.com/auth/spreadsheets',
+     'https://www.googleapis.com/auth/drive'])
+service = apiclient.discovery.build('sheets', 'v4', http=credentials.authorize(httplib2.Http()))
 
 def get_token() -> str:
     """Достает токен"""
@@ -103,6 +115,54 @@ def tag_all_users(tg_bot: TgApi, message: dict) -> None:
         message_thread_id=message['message_thread_id'] if 'message_thread_id' in message else None
     ))
 
+def datettime_table_statistic(tg_bot: TgApi, message: dict) -> None:
+    values = service.spreadsheets().values().get(
+        spreadsheetId=SHEET_ID,
+        range='A1:X1000',
+        majorDimension='COLUMNS'
+    ).execute()['values']
+
+    def get_empty_values_str(count: int) -> list:
+        return ['' for i in range(count)]
+
+    len_table = max(*[len(column) - 1 for column in values])
+
+    columns = {column[0]: column[1:] + get_empty_values_str(len_table - len(column[1:])) for column in values}
+
+    table_md = (
+        pd.melt(
+            pd.DataFrame(columns),
+            id_vars=['Отметка времени', 'Как тебя зовут(ФИО или ник в ТГ)?'],
+            value_vars=['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'],
+            var_name='День',
+            value_name='Время'
+        ).assign(
+            Время=lambda df: df['Время'].apply(lambda x: x.split(', ')),
+            count=1
+        )
+        .explode('Время')
+        .groupby(['День', 'Время'], as_index=False).count()
+        [['День', 'Время', 'count']]
+        .sort_values('count', ascending=False)
+        .query('Время != ""')
+        .assign(perc=lambda df: (100 * df['count']/len_table).round(2))
+        .to_markdown(index=False)
+    )
+
+    message_text = (
+        f'Проголосовало: {len_table}\n\n'
+        'Статистика:\n'
+        '```Markdown\n'
+        f'{table_md}\n'
+        '```'
+    )
+    
+    asyncio.run(tg_bot.send_message(
+        text=message_text,
+        chat_id=message['chat']['id'],
+        message_thread_id=message['message_thread_id'] if 'message_thread_id' in message else None,
+        parse_mode='MarkdownV2',
+    ))
 
 def main() -> None:
     while True:
@@ -114,7 +174,7 @@ def main() -> None:
                     user_id=message['from']['id'],
                     user_name=message['from']['username'],
                 )
-                if 'text' in message:
+                if 'text' in message and message['from']['id'] != message['chat']['id']:
                     commands = get_commands(message['text'])
                     if message['from']['id'] in get_admins(bot, message['chat']['id'])\
                         and len(commands) == 1\
@@ -124,7 +184,8 @@ def main() -> None:
         # break
 
 ADMIN_FUNCTIONS = {
-    'all': tag_all_users
+    'all': tag_all_users,
+    'table_statistic': datettime_table_statistic,
 }
 
 if __name__ == '__main__':
