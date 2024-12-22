@@ -4,6 +4,7 @@ from typing import Any
 import sqlite3 as sq
 
 import re
+import sys
 import json
 import asyncio
 import httplib2
@@ -25,11 +26,17 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(
      'https://www.googleapis.com/auth/drive'])
 service = apiclient.discovery.build('sheets', 'v4', http=credentials.authorize(httplib2.Http()))
 
+IS_TEST = len(sys.argv) > 1 and sys.argv[1] == 'test'
+print(f'is test == {IS_TEST}')
+
 def get_token() -> str:
     """Достает токен"""
         
     with open(TG_KEYS_DIR, 'r') as f:
-        token = json.load(f)['token']
+        if not IS_TEST:
+            token = json.load(f)['token']
+        else:
+            token = json.load(f)['test_bot_token']
     
     return token
 
@@ -55,6 +62,22 @@ def db_create_table_users() -> str:
     return str(asyncio.run(db_run_query(query)))
 
 
+def db_create_table_messages() -> None:
+    """Создает таблицу с сообщениями"""
+
+    query = (
+        'create table if not exists messages (\n'
+        '\tchat_id integer,\n'
+        '\tuser_id integer,\n'
+        '\tmessage_id integet,\n'
+        '\ttext text,\n'
+        '\tthread_id integer\n'
+        ')'
+    )
+
+    asyncio.run(db_run_query(query))
+
+
 def db_save_user_info(chat_id: int, user_id: int, user_name: str) -> None:
     """Сохраняет инфу о пользователе в базе данных"""
     
@@ -71,7 +94,17 @@ def db_save_user_info(chat_id: int, user_id: int, user_name: str) -> None:
             f'values({chat_id}, {user_id}, "{user_name}")'
         )
         asyncio.run(db_run_query(query))
-        
+
+
+def db_save_message(chat_id: int, user_id: int, message_id: int, text: str, thread_id: int=-1) -> None:
+    """Сохраняет сообщение пользователя"""
+
+    query = (
+        'insert into messages (chat_id, user_id, message_id, text, thread_id) '
+        f'values({chat_id}, {user_id}, {message_id}, "{text}", {thread_id})'
+    )
+    asyncio.run(db_run_query(query))
+
 
 def db_get_all_user_name(chat_id: int) -> list[str]:
     """Достает name пользователей в базе данных с @"""
@@ -174,6 +207,15 @@ def main() -> None:
                     user_id=message['from']['id'],
                     user_name=message['from']['username'],
                 )
+                if 'text' in message:
+                    db_save_message(
+                        chat_id=message['chat']['id'],
+                        user_id=message['from']['id'],
+                        message_id=message['message_id'],
+                        text=message['text'],
+                        thread_id=message['thread_id'] if 'thread_id' in message else -1
+                    )
+
                 if 'text' in message and message['from']['id'] != message['chat']['id']:
                     commands = get_commands(message['text'])
                     if message['from']['id'] in get_admins(bot, message['chat']['id'])\
@@ -191,4 +233,6 @@ ADMIN_FUNCTIONS = {
 if __name__ == '__main__':
     TOKEN = get_token()    
     bot = TgApi(TOKEN)
+    db_create_table_users()
+    db_create_table_messages()
     main()
