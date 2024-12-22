@@ -62,6 +62,22 @@ def db_create_table_users() -> str:
     return str(asyncio.run(db_run_query(query)))
 
 
+def db_create_table_messages() -> None:
+    """Создает таблицу с сообщениями"""
+
+    query = (
+        'create table if not exists messages (\n'
+        '\tchat_id integer,\n'
+        '\tuser_id integer,\n'
+        '\tmessage_id integet,\n'
+        '\ttext text,\n'
+        '\tthread_id integer\n'
+        ')'
+    )
+
+    asyncio.run(db_run_query(query))
+
+
 def db_save_user_info(chat_id: int, user_id: int, user_name: str) -> None:
     """Сохраняет инфу о пользователе в базе данных"""
     
@@ -80,7 +96,7 @@ def db_save_user_info(chat_id: int, user_id: int, user_name: str) -> None:
         asyncio.run(db_run_query(query))
 
 
-def save_message(chat_id: int, user_id: int, message_id: int, text: str, thread_id: int=-1) -> None:
+def db_save_message(chat_id: int, user_id: int, message_id: int, text: str, thread_id: int=-1) -> None:
     """Сохраняет сообщение пользователя"""
 
     query = (
@@ -191,6 +207,15 @@ def main() -> None:
                     user_id=message['from']['id'],
                     user_name=message['from']['username'],
                 )
+                if 'text' in message:
+                    db_save_message(
+                        chat_id=message['chat']['id'],
+                        user_id=message['from']['id'],
+                        message_id=message['message_id'],
+                        text=message['text'],
+                        thread_id=message['thread_id'] if 'thread_id' in message else -1
+                    )
+
                 if 'text' in message and message['from']['id'] != message['chat']['id']:
                     commands = get_commands(message['text'])
                     if message['from']['id'] in get_admins(bot, message['chat']['id'])\
@@ -208,4 +233,6 @@ ADMIN_FUNCTIONS = {
 if __name__ == '__main__':
     TOKEN = get_token()    
     bot = TgApi(TOKEN)
+    db_create_table_users()
+    db_create_table_messages()
     main()
