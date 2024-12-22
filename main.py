@@ -78,7 +78,17 @@ def db_save_user_info(chat_id: int, user_id: int, user_name: str) -> None:
             f'values({chat_id}, {user_id}, "{user_name}")'
         )
         asyncio.run(db_run_query(query))
-        
+
+
+def save_message(chat_id: int, user_id: int, message_id: int, text: str, thread_id: int=-1) -> None:
+    """Сохраняет сообщение пользователя"""
+
+    query = (
+        'insert into messages (chat_id, user_id, message_id, text, thread_id) '
+        f'values({chat_id}, {user_id}, {message_id}, "{text}", {thread_id})'
+    )
+    asyncio.run(db_run_query(query))
+
 
 def db_get_all_user_name(chat_id: int) -> list[str]:
     """Достает name пользователей в базе данных с @"""
