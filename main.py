@@ -4,6 +4,7 @@ from typing import Any
 import sqlite3 as sq
 
 import re
+import sys
 import json
 import asyncio
 import httplib2
@@ -25,11 +26,17 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(
      'https://www.googleapis.com/auth/drive'])
 service = apiclient.discovery.build('sheets', 'v4', http=credentials.authorize(httplib2.Http()))
 
+IS_TEST = len(sys.argv) > 1 and sys.argv[1] == 'test'
+print(f'is test == {IS_TEST}')
+
 def get_token() -> str:
     """Достает токен"""
         
     with open(TG_KEYS_DIR, 'r') as f:
-        token = json.load(f)['token']
+        if not IS_TEST:
+            token = json.load(f)['token']
+        else:
+            token = json.load(f)['test_bot_token']
     
     return token
 
