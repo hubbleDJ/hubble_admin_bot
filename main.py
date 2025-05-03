@@ -43,7 +43,7 @@ def get_token() -> str:
 
 async def db_run_query(query: str) -> Any:
     """Делает запрос в базу данных"""
-    
+
     with sq.connect(DB_PATH) as connect:
         answer = connect.cursor().execute(query).fetchall()
     return answer
@@ -103,8 +103,11 @@ def db_save_message(chat_id: int, user_id: int, message_id: int, text: str, thre
         'insert into messages (chat_id, user_id, message_id, text, thread_id) '
         f'values({chat_id}, {user_id}, {message_id}, "{text}", {thread_id})'
     )
-    asyncio.run(db_run_query(query))
-
+    try:
+        asyncio.run(db_run_query(query))
+    except Exception as err:
+        print(err)
+        print(query)
 
 def db_get_all_user_name(chat_id: int) -> list[str]:
     """Достает name пользователей в базе данных с @"""
