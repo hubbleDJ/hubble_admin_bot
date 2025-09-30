@@ -4,10 +4,12 @@ from typing import Any
 import sqlite3 as sq
 
 import re
-import sys
+import sys, os
 import json
+import yadisk
 import asyncio
 import httplib2
+from datetime import datetime as dt
 import apiclient.discovery
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -16,7 +18,10 @@ import pandas as pd
 BASE_DIR = Path(__file__).resolve().parent
 TG_KEYS_DIR = Path(BASE_DIR, '.keys', 'tg.json')
 GS_KEYS_DIR = Path(BASE_DIR, '.keys', 'google_creds.json')
+YA_KEYS_DIR = Path(BASE_DIR, '.keys', 'ya.json')
 DB_PATH = Path(BASE_DIR, 'my_db.db')
+
+HUBBLE_ID = 1282354906
 
 SHEET_ID = '1qgSySoi2qepPO841gTLkSdwXNmmbVlagw0ldsNSFXRo'
 
@@ -40,6 +45,13 @@ def get_token() -> str:
     
     return token
 
+def get_ya_token() -> str:
+    with open(YA_KEYS_DIR, 'r') as f:
+        ya_token = json.load(f)['token']
+
+    return ya_token
+
+YA_CLIENT = yadisk.YaDisk(token=get_ya_token())
 
 async def db_run_query(query: str) -> Any:
     """Делает запрос в базу данных"""
@@ -200,6 +212,40 @@ def datettime_table_statistic(tg_bot: TgApi, message: dict) -> None:
         parse_mode='MarkdownV2',
     ))
 
+def new_note_in_ya(new_line: str) -> str:
+    notes_path_ya = '/Документы/notes/logseq_notes/journals'
+    temp_notes_path = Path(BASE_DIR, 'temp_notes')
+    
+    if 'temp_notes' not in os.listdir(BASE_DIR):
+        os.mkdir(temp_notes_path)
+    
+    file_name = f'''{dt.now().date().__str__().replace('-', '_')}.md'''
+    file_path_ya = f'''{notes_path_ya}/{file_name}'''
+    file_path_temp = f'{temp_notes_path}/{file_name}'
+    
+    if YA_CLIENT.exists(file_path_ya):
+        YA_CLIENT.download(file_path_ya, file_path_temp)
+        with open(file_path_temp, 'r') as f:
+            rows_file = f.readlines()
+    else:
+        rows_file = []
+        
+    with open(file_path_temp, 'w') as wf:
+        rows_file.append(f'\n- {new_line}')
+        wf.writelines(rows_file)
+        
+    if YA_CLIENT.exists(file_path_ya):
+        YA_CLIENT.remove(file_path_ya)
+
+    return str(YA_CLIENT.upload(file_path_temp, file_path_ya))
+    
+
+def new_note(tg_bot: TgApi, message: dict):
+    asyncio.run(tg_bot.send_message(
+        text=new_note_in_ya(message['text'].replace('@note', '#tg_note')),
+        chat_id=message['chat']['id'],
+    ))
+
 def main() -> None:
     while True:
         messages = asyncio.run(bot.get_messages())['messages']
@@ -219,18 +265,20 @@ def main() -> None:
                         thread_id=message['thread_id'] if 'thread_id' in message else -1
                     )
 
-                if 'text' in message and message['from']['id'] != message['chat']['id']:
+                if 'text' in message and (message['from']['id'] != message['chat']['id'] or (message['from']['id'] == HUBBLE_ID and message['chat']['id'] == HUBBLE_ID)):
                     commands = get_commands(message['text'])
-                    if message['from']['id'] in get_admins(bot, message['chat']['id'])\
-                        and len(commands) == 1\
+                    if (message['from']['id'] in get_admins(bot, message['chat']['id']) or\
+                        (message['from']['id'] == HUBBLE_ID and message['chat']['id'] == HUBBLE_ID)
+                        ) and len(commands) == 1\
                         and commands[0] in ADMIN_FUNCTIONS:
-                        
+
                         ADMIN_FUNCTIONS[commands[0]](bot, message)
         # break
 
 ADMIN_FUNCTIONS = {
     'all': tag_all_users,
     'table_statistic': datettime_table_statistic,
+    'note': new_note,
 }
 
 if __name__ == '__main__':
