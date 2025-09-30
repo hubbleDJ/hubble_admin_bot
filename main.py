@@ -142,9 +142,9 @@ def get_admins(tg_bot: TgApi, chat_id: int) -> list[int]:
 
 
 def get_commands(text: str) -> list[str]:
-    """Ищет команду в тексте сообщения по маске @"""
+    """Ищет команду в тексте сообщения по маске #"""
     
-    pattern = r'@([^ \n]+)'
+    pattern = r'#([^ \n]+)'
     return re.findall(pattern, text)
 
     
@@ -152,7 +152,7 @@ def tag_all_users(tg_bot: TgApi, message: dict) -> None:
     """Тегает всех в чате"""
     
     users_str = ' '.join(db_get_all_user_name(message['chat']['id']))
-    answer_text = message['text'].replace('@all', users_str)
+    answer_text = message['text'].replace('#all', users_str)
     asyncio.run(tg_bot.delete_message(
         chat_id=message['chat']['id'],
         message_id=message['message_id']
@@ -240,10 +240,15 @@ def new_note_in_ya(new_line: str) -> str:
     return str(YA_CLIENT.upload(file_path_temp, file_path_ya))
     
 
-def new_note(tg_bot: TgApi, message: dict):
+def new_note(tg_bot: TgApi, message: dict) -> None:
     asyncio.run(tg_bot.send_message(
-        text=new_note_in_ya(message['text'].replace('@note', '#tg_note')),
+        text=new_note_in_ya(message['text'].replace('#note', '#tg_notes')),
         chat_id=message['chat']['id'],
+    ))
+
+    asyncio.run(tg_bot.delete_message(
+        chat_id=message['chat']['id'],
+        message_id=message['message_id']
     ))
 
 def main() -> None:
@@ -269,7 +274,7 @@ def main() -> None:
                     commands = get_commands(message['text'])
                     if (message['from']['id'] in get_admins(bot, message['chat']['id']) or\
                         (message['from']['id'] == HUBBLE_ID and message['chat']['id'] == HUBBLE_ID)
-                        ) and len(commands) == 1\
+                        ) and len(commands) >= 1\
                         and commands[0] in ADMIN_FUNCTIONS:
 
                         ADMIN_FUNCTIONS[commands[0]](bot, message)
