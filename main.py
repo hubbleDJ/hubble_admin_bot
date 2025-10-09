@@ -242,7 +242,7 @@ def new_note_in_ya(new_line: str) -> str:
 
 def new_note(tg_bot: TgApi, message: dict) -> None:
     asyncio.run(tg_bot.send_message(
-        text=new_note_in_ya(message['text'].replace('#note', '#tg_notes')),
+        text=new_note_in_ya(message['text'].replace('#note', '#tg_notes').replace('$t', '\t')),
         chat_id=message['chat']['id'],
     ))
 
