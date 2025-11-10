@@ -213,15 +213,14 @@ def datettime_table_statistic(tg_bot: TgApi, message: dict) -> None:
     ))
 
 def new_note_in_ya(new_line: str) -> str:
-    notes_path_ya = '/Документы/notes/logseq_notes/journals'
+    notes_path_ya = '/Документы/logseq_notes/pages/Заметки на полях.md'
     temp_notes_path = Path(BASE_DIR, 'temp_notes')
     
     if 'temp_notes' not in os.listdir(BASE_DIR):
         os.mkdir(temp_notes_path)
     
-    file_name = f'''{dt.now().date().__str__().replace('-', '_')}.md'''
-    file_path_ya = f'''{notes_path_ya}/{file_name}'''
-    file_path_temp = f'{temp_notes_path}/{file_name}'
+    file_path_ya = notes_path_ya
+    file_path_temp = f'{temp_notes_path}/Заметки на полях.md'
     
     if YA_CLIENT.exists(file_path_ya):
         YA_CLIENT.download(file_path_ya, file_path_temp)
